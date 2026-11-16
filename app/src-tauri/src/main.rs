@@ -9,7 +9,19 @@ use tauri::{
     AppHandle, Emitter, Manager, WindowEvent,
 };
 use tauri_plugin_autostart::{MacosLauncher, ManagerExt};
-use tauri_plugin_global_shortcut::{Code, Modifiers, Shortcut, ShortcutState};
+use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
+
+/// Release builds have no console, so a failure at start-up would otherwise be invisible.
+/// Everything worth knowing goes to %LOCALAPPDATA%\\Eddy\\eddy-startup.log.
+fn log_line(msg: &str) {
+    use std::io::Write;
+    let Some(base) = std::env::var_os("LOCALAPPDATA").or_else(|| std::env::var_os("TEMP")) else { return };
+    let dir = std::path::PathBuf::from(base).join("Eddy");
+    if std::fs::create_dir_all(&dir).is_err() { return; }
+    if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(dir.join("eddy-startup.log")) {
+        let _ = writeln!(f, "{msg}");
+    }
+}
 
 fn show_main(app: &AppHandle) {
     if let Some(w) = app.get_webview_window("main") {
@@ -20,6 +32,8 @@ fn show_main(app: &AppHandle) {
 }
 
 fn main() {
+    std::panic::set_hook(Box::new(|info| log_line(&format!("PANIC: {info}"))));
+    log_line(&format!("--- Eddy {} starting, args: {:?}", env!("CARGO_PKG_VERSION"), std::env::args().collect::<Vec<_>>()));
     // Ctrl+Alt+M mutes or unmutes the microphone from any app, including a game.
     let mute_key = Shortcut::new(Some(Modifiers::CONTROL | Modifiers::ALT), Code::KeyM);
 
@@ -37,8 +51,6 @@ fn main() {
         .plugin(tauri_plugin_autostart::init(MacosLauncher::LaunchAgent, Some(vec!["--minimized"])))
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
-                .with_shortcut(mute_key)
-                .expect("could not register Ctrl+Alt+M")
                 .with_handler(move |app, shortcut, event| {
                     if shortcut == &mute_key && event.state() == ShortcutState::Pressed {
                         let _ = app.emit("toggle-mic", ());
@@ -46,7 +58,11 @@ fn main() {
                 })
                 .build(),
         )
-        .setup(|app| {
+        .setup(move |app| {
+            // If another program already owns Ctrl+Alt+M, Eddy still starts, just without the hotkey.
+            if let Err(e) = app.global_shortcut().register(mute_key) {
+                log_line(&format!("Ctrl+Alt+M could not be registered: {e}"));
+            }
             let handle = app.handle().clone();
             let autostart_on = app.autolaunch().is_enabled().unwrap_or(false);
 
@@ -80,7 +96,9 @@ fn main() {
                         show_main(tray.app_handle());
                     }
                 })
-                .build(app)?;
+                .build(app)
+                .map_err(|e| log_line(&format!("tray icon could not be created: {e}")))
+                .ok();
 
             // Started by Windows at sign-in: stay in the tray, do not pop a window.
             if std::env::args().any(|a| a == "--minimized") {
@@ -97,4 +115,5 @@ fn main() {
         })
         .run(tauri::generate_context!())
         .expect("error while running Eddy");
+    log_line("Eddy exited normally");
 }
