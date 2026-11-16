@@ -1,0 +1,8 @@
+[package]
+name = "eddy-json"
+description = "Small JSON value, parser and writer (no dependencies), used for profiles and IPC"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]

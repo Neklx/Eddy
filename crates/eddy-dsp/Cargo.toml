@@ -1,0 +1,8 @@
+[package]
+name = "eddy-dsp"
+description = "Real-time audio processing blocks for Eddy (no allocation in process paths, no dependencies)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]

@@ -1,0 +1,44 @@
+const { chromium } = require('playwright');
+const fs = require('fs'), path = require('path');
+const src = (f) => fs.readFileSync(path.join(__dirname, '..', 'src', f), 'utf8');
+(async () => {
+  const b = await chromium.launch({ args: ['--autoplay-policy=no-user-gesture-required'] });
+  const p = await b.newPage();
+  const errs = []; p.on('pageerror', (e) => errs.push(e.message)); p.on('console', (m) => m.type() === 'error' && errs.push(m.text()));
+  await p.goto('file://' + path.join(__dirname, 'blank.html'));
+  for (const f of ['worklets.js', 'nodes.js', 'engine.js']) await p.addScriptTag({ content: src(f) });
+  const result = await p.evaluate(async () => {
+    const mk = (id, type, params = {}) => ({ id, type, x: 0, y: 0, params: Object.assign(Object.fromEntries(NODE_TYPES[type].params.filter((q) => q.k).map((q) => [q.k, q.def])), params) });
+    const chain = (types) => {
+      const nodes = [mk('src', 'source.voice'), ...types.map((t, i) => mk('n' + i, t[0], t[1] || {})), mk('out', 'out.speakers')];
+      const edges = nodes.slice(1).map((n, i) => ({ id: 'e' + i, from: nodes[i].id, to: n.id, gain: 1, mute: false }));
+      return { nodes, edges };
+    };
+    const rms = (d, a, b, sr) => { let s = 0; const i0 = Math.floor(a * sr), i1 = Math.floor(b * sr); for (let i = i0; i < i1; i++) s += d[i] * d[i]; return 20 * Math.log10(Math.sqrt(s / (i1 - i0)) + 1e-9); };
+    const out = {};
+    const run = async (name, g) => { const buf = await Engine.renderOffline(g, 12); const d = buf.getChannelData(0), sr = buf.sampleRate; out[name] = { voice: rms(d, 6 + 3.9, 6 + 4.3, sr), gap: rms(d, 6 + 4.5, 6 + 4.85, sr) }; };
+    await run('raw', chain([]));
+    await run('denoise', chain([['fx.denoise', { strength: 0.8 }]]));
+    await run('denoise+gate', chain([['fx.denoise', { strength: 0.8 }], ['fx.gate', { threshold: -18, range: -70 }]]));
+    await run('bypassed', (() => { const g = chain([['fx.denoise', { strength: 0.8 }]]); g.nodes[1].bypass = true; return g; })());
+    await run('muted', (() => { const g = chain([['fx.gain']]); g.nodes[1].mute = true; return g; })());
+    await run('gain -12', chain([['fx.gain', { gain: -12 }]]));
+    await run('limiter', chain([['fx.gain', { gain: 24 }], ['fx.limiter', { ceiling: -6 }]]));
+    return out;
+  });
+  console.log(JSON.stringify(result, null, 1));
+  const r = result, ok = [];
+  const chk = (c, m) => { ok.push([c, m]); };
+  chk(r.raw.voice - r.raw.gap < 8, 'raw has a noisy gap: ' + (r.raw.voice - r.raw.gap).toFixed(1) + ' dB over');
+  chk(r.denoise.gap < r.raw.gap - 8, 'denoise lowers gap by ' + (r.raw.gap - r.denoise.gap).toFixed(1) + ' dB');
+  chk(Math.abs(r.denoise.voice - r.raw.voice) < 4.5, 'denoise keeps voice level (' + (r.denoise.voice - r.raw.voice).toFixed(1) + ' dB change)');
+  chk(r['denoise+gate'].gap < r.denoise.gap - 6 && r['denoise+gate'].voice > r.denoise.voice - 1.5, 'gate closes the gaps by ' + (r.denoise.gap - r['denoise+gate'].gap).toFixed(1) + ' dB more and keeps the voice');
+  chk(r.bypassed.gap > r.raw.gap - 1.5, 'bypass passes the noise through');
+  chk(r.muted.voice < -80, 'mute silences');
+  chk(Math.abs((r.raw.voice - r['gain -12'].voice) - 12) < 0.5, 'gain -12 dB changes level by 12 dB');
+  chk(r.limiter.voice < -5.5, 'limiter holds the ceiling');
+  for (const [c, m] of ok) console.log((c ? 'PASS ' : 'FAIL ') + m);
+  console.log('page errors:', errs);
+  await b.close();
+  process.exit(ok.every(([c]) => c) && !errs.length ? 0 : 1);
+})();

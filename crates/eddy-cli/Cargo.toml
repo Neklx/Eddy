@@ -1,0 +1,10 @@
+[package]
+name = "eddy-cli"
+description = "Command line tools: simulate the engine offline, serve the control protocol"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+eddy-engine = { path = "../eddy-engine" }
+eddy-json = { path = "../eddy-json" }

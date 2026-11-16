@@ -1,0 +1,28 @@
+# Windows-only backend. Kept OUTSIDE the main workspace so Linux/CI builds of the portable
+# crates never try to resolve the `windows` crate.
+[workspace]
+
+[package]
+name = "eddy-win"
+description = "WASAPI backend for the Eddy engine: capture, loopback, render, device list"
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+
+[features]
+process-loopback = ["windows/implement", "dep:windows-core"]
+
+[dependencies]
+eddy-engine = { path = "../../crates/eddy-engine" }
+eddy-ring = { path = "../../crates/eddy-ring" }
+windows-core = { version = "0.58", optional = true }
+windows = { version = "0.58", features = [
+  "Win32_Foundation",
+  "Win32_Security",
+  "Win32_Media_Audio",
+  "Win32_Devices_FunctionDiscovery",
+  "Win32_System_Com",
+  "Win32_System_Com_StructuredStorage",
+  "Win32_System_Threading",
+  "Win32_UI_Shell_PropertiesSystem",
+] }

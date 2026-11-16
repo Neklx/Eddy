@@ -1,0 +1,11 @@
+[package]
+name = "eddy-engine"
+description = "Eddy audio engine: sources, voice chains, routing, profiles, control protocol"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+eddy-dsp = { path = "../eddy-dsp" }
+eddy-ring = { path = "../eddy-ring" }
+eddy-json = { path = "../eddy-json" }
