@@ -44,6 +44,9 @@
       }
     },
     "publisher": "Eddy contributors",
-    "shortDescription": "Windows audio mixer and virtual microphone"
+    "shortDescription": "Windows audio mixer and virtual microphone",
+    "externalBin": [
+      "binaries/eddy-win"
+    ]
   }
 }

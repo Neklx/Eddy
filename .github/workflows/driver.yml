@@ -1,0 +1,27 @@
+name: Eddy driver (experimental)
+on: workflow_dispatch
+jobs:
+  driver:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - name: Get Microsoft driver samples
+        run: git clone --depth 1 https://github.com/microsoft/Windows-driver-samples.git samples
+      - name: Install the Windows Driver Kit (version may need adjusting)
+        run: winget install --id Microsoft.WindowsWDK.10.0.26100 --silent --accept-package-agreements --accept-source-agreements
+        continue-on-error: true
+      - name: Rename devices to Eddy
+        run: ./driver/patch-sysvad.ps1 -SysvadDir samples/audio/sysvad
+      - name: Build
+        run: msbuild samples/audio/sysvad/sysvad.sln /p:Configuration=Release /p:Platform=x64 /p:SignMode=Off /m
+      - name: Create test certificate and sign
+        run: |
+          $c = New-SelfSignedCertificate -Type CodeSigningCert -Subject 'CN=Eddy Test Driver' -CertStoreLocation Cert:\CurrentUser\My
+          New-Item -ItemType Directory -Force out | Out-Null
+          Export-Certificate -Cert $c -FilePath out/eddy-test.cer | Out-Null
+          Get-ChildItem samples/audio/sysvad -Recurse -Include *.sys,*.cat,*.inf | Where-Object { $_.FullName -match 'x64\\Release' } | Copy-Item -Destination out
+          $kit = Get-ChildItem 'C:\Program Files (x86)\Windows Kits\10\bin' -Recurse -Filter signtool.exe | Where-Object { $_.FullName -match 'x64' } | Select-Object -First 1
+          Get-ChildItem out -Include *.sys,*.cat -Recurse | ForEach-Object { & $kit.FullName sign /fd sha256 /sha1 $c.Thumbprint $_.FullName }
+          Copy-Item driver/install-driver.ps1, driver/uninstall-driver.ps1 out
+      - uses: actions/upload-artifact@v4
+        with: { name: eddy-driver, path: out }

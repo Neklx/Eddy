@@ -11,8 +11,9 @@ Each step ends with something you can run and check.
 4. **Per-app capture**: WASAPI process loopback (Windows 10 build 20348+ / Windows 11).
    Milestone: Music player routed to voice chat while the voice app is excluded (echo protection).
 5. **Noise removal**: RNNoise first (BSD, tiny), then DeepFilterNet3 behind the same trait.
-6. **UI shell**: Tauri 2 + the screens in the design canvas, with Lucide icons. UI talks to the engine
-   over the pipe; the audio never runs in the webview.
+6. **UI shell** (shell done, bridge written, none of it built on Windows yet): Tauri 2 app with the web UI. The UI starts `eddy-win`
+   as a child process and talks to it with JSON lines through Tauri commands; the audio never runs in the webview.
+   Still to do: first real build and run, per-app sources, EQ bands, move more of the web-only nodes into the engine.
 7. **Repair, backups, first run**: the Health and First run screens, wired to real checks.
 8. **Own driver**: SYSVAD-derived or Thesycon SDK, EV cert and attestation signing. Long lead time
    (certificate and Microsoft Partner Center), so start the paperwork during step 3.

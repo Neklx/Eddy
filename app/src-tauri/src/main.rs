@@ -1,6 +1,8 @@
 // Hide the extra console window on Windows release builds.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod engine;
+
 use tauri::{
     menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
@@ -22,6 +24,13 @@ fn main() {
     let mute_key = Shortcut::new(Some(Modifiers::CONTROL | Modifiers::ALT), Code::KeyM);
 
     tauri::Builder::default()
+        .manage(engine::EngineState::default())
+        .invoke_handler(tauri::generate_handler![
+            engine::engine_start,
+            engine::engine_stop,
+            engine::engine_request,
+            engine::engine_devices
+        ])
         // A second launch just brings the first window forward.
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| show_main(app)))
         // "Start with Windows" starts Eddy hidden in the tray.
@@ -63,7 +72,7 @@ fn main() {
                         let _ = if on { al.disable() } else { al.enable() };
                         let _ = auto_item.set_checked(al.is_enabled().unwrap_or(false));
                     }
-                    "quit" => app.exit(0),
+                    "quit" => { engine::stop_blocking(app); app.exit(0) }
                     _ => {}
                 })
                 .on_tray_icon_event(|tray, event| {

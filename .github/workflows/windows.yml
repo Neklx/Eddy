@@ -1,0 +1,68 @@
+name: Windows build
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  # 1. Portable engine tests (fast, Linux).
+  engine-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo test --workspace
+
+  # 2. The WASAPI backend on a real Windows runner (MSVC toolchain).
+  #    Compiles only. It cannot run audio: GitHub runners have no sound devices.
+  engine-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: swatinem/rust-cache@v2
+        with: { workspaces: "windows/eddy-win" }
+      - name: Build eddy-win (with per-app capture)
+        run: cargo build --release --features process-loopback
+        working-directory: windows/eddy-win
+      - uses: actions/upload-artifact@v4
+        with:
+          name: eddy-win-exe
+          path: windows/eddy-win/target/release/eddy-win.exe
+
+  # 3. The desktop app and its installer. Independent of job 2 so one failure
+  #    does not hide the other.
+  windows-app:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: swatinem/rust-cache@v2
+        with: { workspaces: "app/src-tauri" }
+      # The app starts this engine as a separate process (Tauri "sidecar", see externalBin).
+      # Built without the experimental per-app capture so the installer does not depend on it.
+      - uses: swatinem/rust-cache@v2
+        with: { workspaces: "windows/eddy-win" }
+      - name: Build the audio engine
+        run: cargo build --release
+        working-directory: windows/eddy-win
+      - name: Place the engine next to the app
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force app/src-tauri/binaries | Out-Null
+          Copy-Item windows/eddy-win/target/release/eddy-win.exe app/src-tauri/binaries/eddy-win-x86_64-pc-windows-msvc.exe
+      - name: Install Tauri CLI
+        run: npm install
+        working-directory: app
+      - name: Generate icons
+        run: npx tauri icon icon-source.png
+        working-directory: app
+      - name: Build installer
+        run: npx tauri build
+        working-directory: app
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Eddy-windows-installer
+          path: app/src-tauri/target/release/bundle/nsis/*.exe

@@ -343,6 +343,7 @@ class Health {
     c.push(ok('Saving', 'Your setup is saved in this browser after every change', store === 'ok' ? 'on' : 'blocked', store));
     return c;
   }
+  nativeCard() { if (!S.native) return null; if (!this.native) this.native = new NativeCard(); return this.native.el; }
   render() {
     if (!this.root.offsetParent) return;
     const cs = this.checks(), bad = cs.filter((c) => c.st === 'bad').length, warn = cs.filter((c) => c.st === 'warn').length;
@@ -354,6 +355,7 @@ class Health {
       h('div', { class: 'cols' },
         h('div', { class: 'card' }, h('div', { class: 'hh', text: 'Checks' }), cs.map((c) => h('div', { class: 'check ' + (c.st === 'ok' ? '' : c.st) }, h('span', { class: 'ok', html: icon(c.st === 'ok' ? 'check' : 'alert', 15) }), h('div', null, h('b', { text: c.name }), h('span', { class: 'd', text: c.d })), h('span', { class: 'r', text: c.r })))),
         h('div', { style: { display: 'flex', flexDirection: 'column', gap: '18px' } },
+          this.nativeCard(),
           h('div', { class: 'card' }, h('div', { class: 'hh' }, 'Backups', h('button', { class: 'btn sm', onclick: () => { saveBackup('Manual'); toast('Backup saved.'); } }, 'Back up now')),
             bks.length ? bks.slice(0, 8).map((b) => h('div', { class: 'brow' }, h('div', { style: { flex: 1 } }, h('b', { text: b.name + (b.label ? ' · ' + b.label : '') }), h('small', { text: new Date(b.t).toLocaleString() })),
               h('button', { class: 'btn sm', onclick: () => { openGraph(b.graph, 'Before restore'); toast('Restored “' + b.name + '”.'); setTab('mixer'); } }, 'Restore'))) : h('div', { class: 'empty', text: 'Eddy saves a copy before big changes and every minute.' })),

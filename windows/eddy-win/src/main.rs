@@ -1,7 +1,7 @@
 #![cfg(windows)]
 //! eddy-win: runs the engine on real Windows devices.
 //!
-//!   eddy-win list
+//!   eddy-win list [--json]
 //!   eddy-win run [--mic NAME] [--out NAME] [--virtual-mic NAME] [--system NAME]
 //!
 //! Wiring (the "Streaming" profile): microphone -> engine source 0, Headphones destination
@@ -17,6 +17,7 @@ use eddy_engine::drift::DriftReader;
 use eddy_engine::ipc::Server;
 use eddy_engine::profile::Profile;
 use eddy_engine::store::Store;
+use eddy_json::Json;
 use eddy_win::{capture, devices, render};
 use std::io::{BufRead, Write};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -30,6 +31,12 @@ fn main() {
     let args: Vec<String> = std::env::args().collect();
     devices::com_init().expect("COM init failed");
     match args.get(1).map(String::as_str) {
+        Some("list") if args.iter().any(|a| a == "--json") => {
+            // One JSON array on stdout, read by the desktop app: [{"id","name","render","default"}]
+            let items = devices::list().expect("could not list devices").into_iter().map(|d| Json::obj()
+                .with("id", d.id).with("name", d.name).with("render", d.is_render).with("default", d.is_default)).collect::<Vec<_>>();
+            println!("{}", Json::Arr(items).to_string());
+        }
         Some("list") => {
             for d in devices::list().expect("could not list devices") {
                 println!("{} {:7} {}{}", if d.is_default { "*" } else { " " }, if d.is_render { "output" } else { "input" }, d.name, "");

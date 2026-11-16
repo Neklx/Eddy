@@ -1,0 +1,5 @@
+target/
+node_modules/
+app/src-tauri/icons/
+app/src-tauri/gen/
+app/src-tauri/binaries/

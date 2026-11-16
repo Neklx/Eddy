@@ -1,6 +1,6 @@
 /* The node graph editor: pan/zoom canvas, draggable nodes, wires, minimap, search-to-add,
    context menus, and per-node customisation (name, colour, icon, pinned controls). */
-function engineSync() { if (S.engine) S.engine.sync(S.graph); }
+function engineSync() { if (S.engine) S.engine.sync(S.graph); if (S.native) S.native.sync(S.graph); }
 function selectNodes(ids, edge = null) { S.sel.nodes = new Set(ids); S.sel.edge = edge; bus.emit('select'); }
 function setParam(node, k, v) { node.params[k] = v; engineSync(); bus.emit('param', node.id); }
 function powerKind(n) { const t = NODE_TYPES[n.type]; return t.in && t.out ? 'bypass' : 'mute'; }

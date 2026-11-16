@@ -38,9 +38,9 @@ async function repairAudio() {
 }
 
 function paintStatus() {
-  const ctx = S.engine && S.engine.ctx, run = ctx && ctx.state === 'running';
+  const ctx = S.engine && S.engine.ctx, nat = !!(S.native && S.native.running), run = nat || (ctx && ctx.state === 'running');
   UI.dot.style.background = run ? 'var(--green)' : 'var(--amber)';
-  UI.state.textContent = run ? 'Running' : ctx ? 'waiting, click anywhere' : 'starting…';
+  UI.state.textContent = nat ? 'Running (native)' : run ? 'Running' : ctx ? 'waiting, click anywhere' : 'starting…';
   UI.lat.textContent = S.engine ? Math.max(1, Math.round(S.engine.latencyMs())) + ' ms' : '–';
   UI.sr.textContent = ctx ? '· ' + (ctx.sampleRate / 1000).toFixed(ctx.sampleRate % 1000 ? 1 : 0) + ' kHz' : '';
   UI.nodes.textContent = S.graph.nodes.length;
@@ -112,12 +112,13 @@ function shortcuts() {
 }
 
 async function boot() {
+  if (NativeEngine.available()) S.native = new NativeEngine();
   buildShell();
   shortcuts();
   bus.on('graph', () => { engineSync(); paintStatus(); });
   bus.on('listen', paintStatus);
   bus.on('select', paintStatus);
-  const wake = () => { S.engine && S.engine.ctx.state === 'suspended' && S.engine.ctx.resume().then(paintStatus); };
+  const wake = () => { S.engine && !(S.native && S.native.running) && S.engine.ctx.state === 'suspended' && S.engine.ctx.resume().then(paintStatus); };
   addEventListener('pointerdown', wake, true); addEventListener('keydown', wake, true);
   try { S.autoSave = localStorage.getItem('eddy.v1.autosave') !== '0'; } catch (e) {}
   const saved = readSaved();

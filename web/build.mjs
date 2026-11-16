@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 const r = (f) => fs.readFileSync(new URL('./src/' + f, import.meta.url), 'utf8');
-const order = ['icons.js', 'worklets.js', 'nodes.js', 'engine.js', 'graph.js', 'ui.js', 'editor.js', 'views.js', 'mixview.js', 'app.js'];
+const order = ['icons.js', 'worklets.js', 'nodes.js', 'engine.js', 'native.js', 'graph.js', 'ui.js', 'editor.js', 'views.js', 'mixview.js', 'app.js'];
 const js = order.map((f) => '/* ==== ' + f + ' ==== */\n' + r(f)).join('\n').replace(/<\/script/gi, '<\\/script');
 const html = `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
